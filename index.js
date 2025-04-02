@@ -1,11 +1,22 @@
 const crypto = require('crypto');
 const fs = require('fs');
-const qrcode = require('qrcode-terminal');
+const QR = require('qrcode');
+const express = require('express');
 const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 
 const config = require('./config.json');
 const admins = require('./admins.json');
 let customCommands = require('./customCommands.json');
+
+// إعداد سيرفر express لعرض qr.png
+const app = express();
+app.use(express.static('public'));
+app.get('/', (req, res) => {
+    res.send('<h1>كود QR للبوت</h1><img src="/qr.png" style="width:300px;border:4px solid #000;border-radius:16px;" />');
+});
+app.listen(process.env.PORT || 3000, () => {
+    console.log("🌐 السيرفر شغّال على /");
+});
 
 function saveCustomCommands() {
     fs.writeFileSync('./customCommands.json', JSON.stringify(customCommands, null, 4), 'utf-8');
@@ -15,15 +26,16 @@ async function startBot() {
     const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
 
-    const sock = makeWASocket({
-        version,
-        auth: state
-    });
+    const sock = makeWASocket({ version, auth: state });
 
-    sock.ev.on('connection.update', (update) => {
-        const { qr } = update;
+    sock.ev.on('connection.update', async (update) => {
+        const { qr, connection } = update;
         if (qr) {
-            qrcode.generate(qr, { small: true });
+            console.log("🔒 يتم إنشاء كود QR...");
+            await QR.toFile('./public/qr.png', qr);
+        }
+        if (connection === 'open') {
+            console.log("✅ تم الاتصال بنجاح مع واتساب!");
         }
     });
 
@@ -33,7 +45,6 @@ async function startBot() {
 
         const sender = msg.key.remoteJid.replace('@s.whatsapp.net', '');
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
-
         if (!text) return;
 
         if (config.defaultReplies[text]) {
