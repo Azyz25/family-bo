@@ -8,7 +8,12 @@ const config = require('./config.json');
 const admins = require('./admins.json');
 let customCommands = require('./customCommands.json');
 
-// إعداد سيرفر express لعرض qr.png
+// تأكد أن مجلد public موجود
+if (!fs.existsSync('./public')) {
+    fs.mkdirSync('./public');
+}
+
+// إعداد السيرفر لعرض صورة QR
 const app = express();
 app.use(express.static('public'));
 app.get('/', (req, res) => {
@@ -34,6 +39,7 @@ async function startBot() {
             console.log("🔒 يتم إنشاء كود QR...");
             await QR.toFile('./public/qr.png', qr);
         }
+
         if (connection === 'open') {
             console.log("✅ تم الاتصال بنجاح مع واتساب!");
         }
